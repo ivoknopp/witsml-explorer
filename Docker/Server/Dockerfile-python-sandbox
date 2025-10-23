@@ -1,0 +1,21 @@
+FROM python:3.12-slim
+
+RUN useradd -m runner
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libfreetype6-dev \
+    libpng-dev \
+    libopenblas-dev \
+    && pip install --no-cache-dir \
+        numpy \
+        pandas \
+        matplotlib \
+        seaborn \
+    && apt-get remove -y build-essential \
+    && apt-get autoremove -y \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+USER runner
+ENTRYPOINT ["python"]

@@ -41,8 +41,10 @@ namespace WitsmlExplorer.IntegrationTests.Api.Workers
             CopyLogDataWorker copyLogDataWorker = new(witsmlClientProvider, logger);
             ILogger<CopyObjectsJob> logger2 = loggerFactory.CreateLogger<CopyObjectsJob>();
             _worker = new CopyLogWorker(logger2, witsmlClientProvider, copyLogDataWorker);
-            _logObjectService = new LogObjectService(witsmlClientProvider);
-
+            var dataStorageService = new DataStorageService(configuration);
+            var pythonCodeExecutionService = new PythonCodeExecutionService(configuration);
+            var openAIService = new OpenAIService(pythonCodeExecutionService, configuration);
+            _logObjectService = new LogObjectService(witsmlClientProvider, dataStorageService, openAIService);
             ILogger<DeleteObjectsJob> logger3 = loggerFactory.CreateLogger<DeleteObjectsJob>();
             _deleteLogsWorker = new DeleteObjectsWorker(logger3, witsmlClientProvider);
         }
@@ -119,10 +121,10 @@ namespace WitsmlExplorer.IntegrationTests.Api.Workers
                 LogData sourceLogData = await _logObjectService.ReadLogData(sourceReference.WellUid,
                     sourceReference.WellboreUid, logUid,
                     new List<string>(sourceLog.LogData.MnemonicList.Split(CommonConstants.DataSeparator)), currentIndex.Equals(Index.Start(sourceLog)),
-                    currentIndex.GetValueAsString(), endIndex.ToString(), false);
+                    currentIndex.GetValueAsString(), endIndex.ToString(), string.Empty, false);
                 LogData targetLogData = await _logObjectService.ReadLogData(targetReference.WellUid, targetReference.WellboreUid, logUid,
                     new List<string>(targetLog.LogData.MnemonicList.Split(CommonConstants.DataSeparator)), currentIndex.Equals(Index.Start(targetLog)),
-                    currentIndex.GetValueAsString(), endIndex.ToString(), false);
+                    currentIndex.GetValueAsString(), endIndex.ToString(), string.Empty, false);
 
                 Assert.Equal(sourceLogData.EndIndex, targetLogData.EndIndex);
                 Assert.Equal(sourceLogData.CurveSpecifications.Count(), targetLogData.CurveSpecifications.Count());

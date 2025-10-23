@@ -13,6 +13,7 @@ namespace WitsmlExplorer.Api.Models
         public string Direction { get; set; }
         public ICollection<CurveSpecification> CurveSpecifications { get; init; }
         public ICollection<Dictionary<string, LogDataValue>> Data { get; init; }
+        public OpenAiServiceResult AiServiceResult { get; set; } = new();
     }
 
     public class CurveSpecification
@@ -30,4 +31,10 @@ namespace WitsmlExplorer.Api.Models
         }
         public object Value { get; }
     }
+
+    //public class AiServiceResult
+    //{
+    //    public string ErrorMessage { get; set; }
+    //    public bool IsSuccess { get; set; } = true;
+    //}
 }

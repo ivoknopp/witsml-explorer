@@ -4,6 +4,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 
+using Microsoft.Extensions.Logging;
+
+using Serilog;
+
+using WitsmlExplorer.Api.Jobs;
 using WitsmlExplorer.Api.Services;
 
 using Xunit;
@@ -22,7 +27,10 @@ namespace WitsmlExplorer.IntegrationTests.Api.Services
             this._output = output;
             var configuration = ConfigurationReader.GetConfig();
             var witsmlClientProvider = new WitsmlClientProvider(configuration);
-            _logObjectService = new LogObjectService(witsmlClientProvider);
+            var dataStorageService = new DataStorageService(configuration);
+            var pythonCodeExecutionService = new PythonCodeExecutionService(configuration);
+            var openAIService = new OpenAIService(pythonCodeExecutionService, configuration);
+            _logObjectService = new LogObjectService(witsmlClientProvider, dataStorageService, openAIService);
         }
 
         [Fact(Skip = "Should only be run manually")]
@@ -35,7 +43,7 @@ namespace WitsmlExplorer.IntegrationTests.Api.Services
 
             var log = await _logObjectService.GetLog(wellUid, wellboreUid, logUid);
 
-            var logData = await _logObjectService.ReadLogData(wellUid, wellboreUid, logUid, mnemonics, true, log.StartIndex, log.EndIndex, false);
+            var logData = await _logObjectService.ReadLogData(wellUid, wellboreUid, logUid, mnemonics, true, log.StartIndex, log.EndIndex, string.Empty, false);
             _output.WriteLine($"Start: {logData.StartIndex}\tEnd: {logData.EndIndex}\tItems: {logData.Data.Count()}");
         }
 
@@ -47,7 +55,7 @@ namespace WitsmlExplorer.IntegrationTests.Api.Services
             var logUid = "5fe185a1-dae3-478d-84e2-b44af1559dae";
             var mnemonics = new List<string> { "Depth", "BIT_RPM_AVG", "FLOWIN", "FLOWOUT", "HKLD_AVG" };
             var log = await _logObjectService.GetLog(wellUid, wellboreUid, logUid);
-            var logData = await _logObjectService.ReadLogData(wellUid, wellboreUid, logUid, mnemonics, true, log.StartIndex, log.EndIndex, false);
+            var logData = await _logObjectService.ReadLogData(wellUid, wellboreUid, logUid, mnemonics, true, log.StartIndex, log.EndIndex, string.Empty, false);
             _output.WriteLine($"Start: {logData.StartIndex}\tEnd: {logData.EndIndex}\tItems: {logData.Data.Count()}");
         }
     }

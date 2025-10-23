@@ -14,7 +14,7 @@ import { UserTheme } from "contexts/operationStateReducer";
 import { useGetObjects } from "hooks/query/useGetObjects";
 import { useExpandSidebarNodes } from "hooks/useExpandObjectGroupNodes";
 import { useOperationState } from "hooks/useOperationState";
-import { CurveSpecification, LogData, LogDataRow } from "models/logData";
+import { AiServiceResult, CurveSpecification, LogData, LogDataRow } from "models/logData";
 import LogObject from "models/logObject";
 import { ObjectType } from "models/objectType";
 import React, { useEffect, useRef, useState } from "react";
@@ -34,6 +34,7 @@ import AdjustDateTimeIndexRange from "../Modals/TrimLogObject/AdjustDateTimeInde
 import { Button } from "../StyledComponents/Button.tsx";
 import { RouterLogType } from "../../routes/routerConstants.ts";
 import { Colors, dark } from "../../styles/Colors.tsx";
+import AiBoxView from "./AiBoxView.tsx";
 
 interface CurveValueRow extends LogDataRow, ContentTableRow {}
 
@@ -46,6 +47,9 @@ export const MultiLogCurveValuesView = (): React.ReactElement => {
   const mnemonicsSearchParams = searchParams.get("mnemonics");
   const startIndex = searchParams.get("startIndex");
   const endIndex = searchParams.get("endIndex");
+  const userQueryTextRef = useRef<HTMLInputElement>();
+  const [aiServiceResult, setAiServiceResult] = useState<AiServiceResult>(null);
+  
   const { wellUid, wellboreUid, logType } = useParams();
   const [startIndexValue, setStartIndexValue] = useState<string | number>(
     startIndex
@@ -118,7 +122,7 @@ export const MultiLogCurveValuesView = (): React.ReactElement => {
     setIsLoading(true);
 
     if (allLogs && !isFetching) {
-      getLogData(startIndexValue.toString(), endIndexValue.toString())
+      getLogData(startIndexValue.toString(), endIndexValue.toString(), userQueryTextRef.current.value)
         .catch(truncateAbortHandler)
         .then(() => setIsLoading(false));
     }
@@ -134,7 +138,7 @@ export const MultiLogCurveValuesView = (): React.ReactElement => {
     return logMnemonics;
   };
 
-  const getLogData = async (startIndex: string, endIndex: string) => {
+  const getLogData = async (startIndex: string, endIndex: string, userText: string) => {
     const logMnemonics = getLogMnemonics();
     const startIndexIsInclusive = true;
     controller.current = new AbortController();
@@ -146,7 +150,8 @@ export const MultiLogCurveValuesView = (): React.ReactElement => {
       startIndexIsInclusive,
       startIndex,
       endIndex,
-      controller.current.signal
+      controller.current.signal,
+      userText
     );
     if (logData && logData.data) {
       const logDataWithProperNames = getLogDataWithProperNames(
@@ -164,6 +169,7 @@ export const MultiLogCurveValuesView = (): React.ReactElement => {
         return row;
       });
       setTableData(logDataRows);
+      setAiServiceResult(logData.aiServiceResult);
     }
   };
 
@@ -226,6 +232,14 @@ export const MultiLogCurveValuesView = (): React.ReactElement => {
             </EdsProvider>
           </CommonPanelContainer>
         </HeaderContent>
+        <AiBoxView 
+          aiServiceResult={aiServiceResult}
+          isLoading={isLoading}
+          isFetching={isFetching}
+          userQueryTextRef={userQueryTextRef}
+          refreshData={refreshData}
+          theme={theme}
+        />         
         {isLoading && <ProgressSpinner message="Fetching data" />}
         {!isLoading && !tableData.length && (
           <Message>

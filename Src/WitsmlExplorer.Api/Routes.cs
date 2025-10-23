@@ -131,6 +131,7 @@ namespace WitsmlExplorer.Api
             {
                 app.MapGet("/credentials/token", AuthorizeHandler.GenerateToken, useOAuth2);
             }
+            app.MapPost("/chat/query-log-data", ChatHandler.QueryLogData, useOAuth2);
         }
     }
 }

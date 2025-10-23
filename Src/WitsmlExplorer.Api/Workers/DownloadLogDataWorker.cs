@@ -65,7 +65,7 @@ public class DownloadLogDataWorker : BaseWorker<DownloadLogDataJob>, IWorker
             job.LogReference.EndIndex = job.EndIndex;
         }
 
-        var logData = await _logObjectService.ReadLogData(job.LogReference.WellUid, job.LogReference.WellboreUid, job.LogReference.Uid, job.Mnemonics.ToList(), job.StartIndexIsInclusive, job.LogReference.StartIndex, job.LogReference.EndIndex, true, cancellationToken, progressReporter);
+        var logData = await _logObjectService.ReadLogData(job.LogReference.WellUid, job.LogReference.WellboreUid, job.LogReference.Uid, job.Mnemonics.ToList(), job.StartIndexIsInclusive, job.LogReference.StartIndex, job.LogReference.EndIndex, string.Empty, true, cancellationToken, progressReporter);
         if (logData.CurveSpecifications == null)
         {
             var message = "DownloadLogDataJob failed. No data found in the given range.";

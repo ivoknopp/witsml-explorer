@@ -18,6 +18,7 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Identity.Web" Version="2.17.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageVersion Include="Microsoft.SemanticKernel" Version="1.66.0" />
     <PackageVersion Include="MongoDB.Driver" Version="2.24.0" />
     <PackageVersion Include="Moq" Version="4.20.70" />
     <PackageVersion Include="NetCore.AutoRegisterDi" Version="2.2.1" />

@@ -30,14 +30,39 @@ namespace WitsmlExplorer.Api.Services
         Task<LogObject> GetLog(string wellUid, string wellboreUid, string logUid, OptionsIn queryOptions, CancellationToken? cancellationToken = null);
         Task<ICollection<LogCurveInfo>> GetLogCurveInfo(string wellUid, string wellboreUid, string logUid);
         Task<ICollection<MultiLogCurveInfo>> GetMultiLogCurveInfo(string wellUid, string wellboreUid, IEnumerable<string> logUids);
-        Task<LogData> GetMultiLogData(string wellUid, string wellboreUid, string startIndex, string endIndex, bool startIndexIsInclusive, Dictionary<string, List<string>> logMnemonics);
-        Task<LogData> ReadLogData(string wellUid, string wellboreUid, string logUid, List<string> mnemonics, bool startIndexIsInclusive, string start, string end, bool loadAllData, CancellationToken? cancellationToken, IProgress<double> progressReporter = null);
+        Task<LogData> GetMultiLogData(string wellUid,
+                                      string wellboreUid,
+                                      string startIndex,
+                                      string endIndex,
+                                      string userText,
+                                      bool startIndexIsInclusive,
+                                      Dictionary<string, List<string>> logMnemonics);
+        Task<LogData> ReadLogData(string wellUid,
+                                  string wellboreUid,
+                                  string logUid,
+                                  List<string> mnemonics,
+                                  bool startIndexIsInclusive,
+                                  string start,
+                                  string end,
+                                  string userText,
+                                  bool loadAllData,
+                                  CancellationToken? cancellationToken,
+                                  IProgress<double> progressReporter = null);
     }
 
     // ReSharper disable once UnusedMember.Global
     public class LogObjectService : WitsmlService, ILogObjectService
     {
-        public LogObjectService(IWitsmlClientProvider witsmlClientProvider) : base(witsmlClientProvider) { }
+        IDataStorageService _dataStorageService;
+        IOpenAIService _openAiService;
+
+        public LogObjectService(IWitsmlClientProvider witsmlClientProvider,
+                                IDataStorageService dataStorageService,
+                                IOpenAIService openAiService) : base(witsmlClientProvider)
+        {
+            _dataStorageService = dataStorageService;
+            _openAiService = openAiService;
+        }
         public async Task<ICollection<LogObject>> GetLogs(string wellUid, string wellboreUid)
         {
             WitsmlLogs witsmlLog = LogQueries.GetWitsmlLogsByWellbore(wellUid, wellboreUid);
@@ -163,8 +188,25 @@ namespace WitsmlExplorer.Api.Services
             return result;
         }
 
-        public async Task<LogData> ReadLogData(string wellUid, string wellboreUid, string logUid, List<string> mnemonics, bool startIndexIsInclusive, string start, string end, bool loadAllData, CancellationToken? cancellationToken = null, IProgress<double> progressReporter = null)
+        public async Task<LogData> ReadLogData(string wellUid,
+                                               string wellboreUid,
+                                               string logUid,
+                                               List<string> mnemonics,
+                                               bool startIndexIsInclusive,
+                                               string start,
+                                               string end,
+                                               string userText,
+                                               bool loadAllData,
+                                               CancellationToken? cancellationToken = null,
+                                               IProgress<double> progressReporter = null)
         {
+            var dataIdentifiers = new string[] { wellUid, wellboreUid, logUid, start, end }.Concat(mnemonics).ToArray();
+            var logData = await TryGetAiGeneratedData(dataIdentifiers, userText);
+            if (logData != null)
+            {
+                return logData;
+            }
+
             WitsmlLog log = await GetLogHeader(wellUid, wellboreUid, logUid);
 
             Index startIndex = Index.Start(log, start);
@@ -203,7 +245,7 @@ namespace WitsmlExplorer.Api.Services
                 .Select(lci => new CurveSpecification { Mnemonic = lci.Mnemonic, Unit = lci.Unit ?? CommonConstants.Unit.Unitless })
                 .ToList();
 
-            return new LogData
+            logData = new LogData
             {
                 StartIndex = witsmlLog.StartIndex == null ? startIndex.GetValueAsString() :
                 Index.Start(witsmlLog).GetValueAsString(),
@@ -212,10 +254,47 @@ namespace WitsmlExplorer.Api.Services
                 CurveSpecifications = curveSpecifications,
                 Data = GetDataDictionary(witsmlLog.LogData)
             };
+
+            logData.AiServiceResult.FileId = _dataStorageService.StoreData(logData, dataIdentifiers);
+            return logData;
         }
-        public async Task<LogData> GetMultiLogData(string wellUid, string wellboreUid, string startIndex, string endIndex, bool startIndexIsInclusive, Dictionary<string, List<string>> logMnemonics)
+
+
+        private async Task<LogData> TryGetAiGeneratedData(string[] dataIdentifiers, string userText)
+        {
+            var fileId = _dataStorageService.GetFileId(dataIdentifiers);
+            if (fileId != null && _dataStorageService.IsOriginalDataStored(fileId))
+            {
+                if (!string.IsNullOrEmpty(userText))
+                {
+                    var aiServiceResult = await _openAiService.QueryCsvFile(fileId, userText);
+                    var logData = _dataStorageService.LoadData(dataIdentifiers, useAiResultData: true);
+                    logData.AiServiceResult = aiServiceResult;
+                    logData.AiServiceResult.FileId = fileId;
+                    return logData;
+                }
+                return _dataStorageService.LoadData(dataIdentifiers, useAiResultData: false);
+            }
+            return null;
+        }
+
+        public async Task<LogData> GetMultiLogData(string wellUid,
+                                                   string wellboreUid,
+                                                   string startIndex,
+                                                   string endIndex,
+                                                   string userText,
+                                                   bool startIndexIsInclusive,
+                                                   Dictionary<string, List<string>> logMnemonics)
         {
             var logUids = logMnemonics.Keys.ToArray();
+
+            var dataIdentifiers = new string[] { wellUid, wellboreUid, startIndex, endIndex }.Concat(logUids).ToArray();
+            var logData = await TryGetAiGeneratedData(dataIdentifiers, userText);
+            if (logData != null)
+            {
+                return logData;
+            }
+
             var logsQuery = new WitsmlLogs
             {
                 Logs = logUids.Select(logUid =>
@@ -241,9 +320,11 @@ namespace WitsmlExplorer.Api.Services
             var indexType = logs.Logs.FirstOrDefault().IndexType;
             if (logs.Logs.Any(log => log.IndexType != indexType)) throw new DataException("Index type must match for all logs");
 
-            var logDataTasks = logMnemonics.Select(kvp => ReadLogData(wellUid, wellboreUid, kvp.Key, kvp.Value, startIndexIsInclusive, startIndex, endIndex, loadAllData: false, CancellationToken.None)).ToList();
+            var logDataTasks = logMnemonics.Select(kvp => ReadLogData(wellUid, wellboreUid, kvp.Key, kvp.Value, startIndexIsInclusive, startIndex, endIndex, userText, loadAllData: false, CancellationToken.None)).ToList();
             var data = (await Task.WhenAll(logDataTasks)).ToList();
-            return MergeMultiLogData(data, logs.Logs);
+            logData = MergeMultiLogData(data, logs.Logs);
+            _dataStorageService.StoreData(logData, dataIdentifiers);
+            return logData;
         }
 
         private LogData MergeMultiLogData(List<LogData> logDatas, List<WitsmlLog> logs)

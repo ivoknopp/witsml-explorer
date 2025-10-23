@@ -43,12 +43,13 @@ namespace WitsmlExplorer.Api.HttpHandlers
             [FromQuery(Name = "endIndex")] string endIndex,
             [FromQuery(Name = "startIndexIsInclusive")] bool startIndexIsInclusive,
             [FromQuery(Name = "loadAllData")] bool loadAllData,
-            [FromBody] IEnumerable<string> mnemonics,
+            [FromBody] LogDataRequestDetails requestDetails,
             ILogObjectService logObjectService)
         {
-            if (mnemonics.Any())
+            if (requestDetails.Mnemonics.Any())
             {
-                var logData = await logObjectService.ReadLogData(wellUid, wellboreUid, logUid, mnemonics.ToList(), startIndexIsInclusive, startIndex, endIndex, loadAllData, CancellationToken.None);
+                var mnemonics = requestDetails.Mnemonics.First().Value.ToList();
+                var logData = await logObjectService.ReadLogData(wellUid, wellboreUid, logUid, mnemonics, startIndexIsInclusive, startIndex, endIndex, requestDetails.UserText, loadAllData, CancellationToken.None);
                 return TypedResults.Ok(logData);
             }
             else
@@ -64,12 +65,12 @@ namespace WitsmlExplorer.Api.HttpHandlers
             [FromQuery(Name = "startIndex")] string startIndex,
             [FromQuery(Name = "endIndex")] string endIndex,
             [FromQuery(Name = "startIndexIsInclusive")] bool startIndexIsInclusive,
-            [FromBody] Dictionary<string, List<string>> logMnemonics,
+            [FromBody] LogDataRequestDetails requestDetails,
             ILogObjectService logObjectService)
         {
-            if (logMnemonics.Count > 0)
+            if (requestDetails.Mnemonics.Count > 0)
             {
-                var multiLogData = await logObjectService.GetMultiLogData(wellUid, wellboreUid, startIndex, endIndex, startIndexIsInclusive, logMnemonics);
+                var multiLogData = await logObjectService.GetMultiLogData(wellUid, wellboreUid, startIndex, endIndex, requestDetails.UserText, startIndexIsInclusive, requestDetails.Mnemonics);
                 return TypedResults.Ok(multiLogData);
             }
             else

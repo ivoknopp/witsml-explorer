@@ -16,7 +16,8 @@ export default class LogObjectService {
     startIndex: string,
     endIndex: string,
     loadAllData: boolean,
-    abortSignal: AbortSignal
+    abortSignal: AbortSignal,
+    userText?: string
   ): Promise<LogData> {
     if (mnemonics.length === 0) return;
     const params = [
@@ -30,9 +31,13 @@ export default class LogObjectService {
     )}/wellbores/${encodeURIComponent(wellboreUid)}/logs/${encodeURIComponent(
       logUid
     )}/logdata?${params.join("&")}`;
+    const logDataRequestDetails = {
+      mnemonics: { Default: mnemonics },
+      userText: userText
+    };    
     const response = await ApiClient.post(
       pathName,
-      JSON.stringify(mnemonics),
+      JSON.stringify(logDataRequestDetails),
       abortSignal
     );
     if (response.ok) {
@@ -64,6 +69,7 @@ export default class LogObjectService {
     startIndex: string,
     endIndex: string,
     abortSignal: AbortSignal,
+    userText?: string,
     server?: Server
   ): Promise<LogData> {
     if (Object.entries(logMnemonics).length === 0) return;
@@ -75,9 +81,13 @@ export default class LogObjectService {
     )}/wellbores/${encodeURIComponent(
       wellboreUid
     )}/multilog/logdata?${params.join("&")}`;
+    const logDataRequestDetails = {
+      mnemonics: logMnemonics,
+      userText: userText
+    };    
     const response = await ApiClient.post(
       pathName,
-      JSON.stringify(logMnemonics),
+      JSON.stringify(logDataRequestDetails),
       abortSignal,
       server
     );

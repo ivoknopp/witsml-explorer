@@ -17,6 +17,7 @@
     <PackageReference Include="Microsoft.Azure.Cosmos" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
     <PackageReference Include="Microsoft.Identity.Web" />
+    <PackageReference Include="Microsoft.SemanticKernel" />
     <PackageReference Include="MongoDB.Driver" />
     <PackageReference Include="NetCore.AutoRegisterDi" />
     <PackageReference Include="Newtonsoft.Json" />
@@ -36,6 +37,9 @@
     <ProjectReference Include="..\Witsml\Witsml.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Content Update="appsettings - Copy.Production.json">
+      <DependentUpon>appsettings.json</DependentUpon>
+    </Content>
     <Content Update="appsettings.Development.json">
       <DependentUpon>appsettings.json</DependentUpon>
     </Content>

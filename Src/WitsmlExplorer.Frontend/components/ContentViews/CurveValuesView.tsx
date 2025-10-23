@@ -35,7 +35,7 @@ import { useOperationState } from "hooks/useOperationState";
 import orderBy from "lodash/orderBy";
 import { ComponentType } from "models/componentType";
 import { IndexRange } from "models/jobs/deleteLogCurveValuesJob";
-import { CurveSpecification, LogData, LogDataRow } from "models/logData";
+import { AiServiceResult, CurveSpecification, LogData, LogDataRow } from "models/logData";
 import LogObject, { indexToNumber } from "models/logObject";
 import { ObjectType } from "models/objectType";
 import React, {
@@ -64,6 +64,7 @@ import {
 import DownloadOptionsSelectionModal, {
   DownloadOptionsSelectionModalProps
 } from "components/Modals/DownloadOptionsSelectionModal.tsx";
+import AiBoxView from "./AiBoxView.tsx";
 
 const TIME_INDEX_START_OFFSET = SECONDS_IN_MINUTE * 20; // offset before log end index that defines the start index for streaming (in seconds).
 const DEPTH_INDEX_START_OFFSET = 20; // offset before log end index that defines the start index for streaming.
@@ -83,7 +84,9 @@ export const CurveValuesView = (): React.ReactElement => {
   const mnemonicsSearchParams = searchParams.get("mnemonics");
   const startIndex = searchParams.get("startIndex");
   const endIndex = searchParams.get("endIndex");
+  const userQueryTextRef = useRef<HTMLInputElement>();
   const { wellUid, wellboreUid, objectUid, logType } = useParams();
+  const [aiServiceResult, setAiServiceResult] = useState<AiServiceResult>(null);
   const [columns, setColumns] = useState<
     ExportableContentTableColumn<CurveSpecification>[]
   >([]);
@@ -145,7 +148,7 @@ export const CurveValuesView = (): React.ReactElement => {
         TIME_INDEX_OFFSET,
         DEPTH_INDEX_OFFSET
       );
-      getLogData(startIndex, endIndex).then(() => {
+      getLogData(startIndex, endIndex, userQueryTextRef.current.value).then(() => {
         refreshDelayTimer.current = setTimeout(
           () => setRefreshFlag((flag) => !flag),
           refreshDelay * MILLIS_IN_SECOND
@@ -293,7 +296,7 @@ export const CurveValuesView = (): React.ReactElement => {
     setAutoRefresh(false);
 
     if (log && !isFetchingLog && mnemonics) {
-      getLogData(startIndex, endIndex)
+      getLogData(startIndex, endIndex, userQueryTextRef.current.value)
         .catch(truncateAbortHandler)
         .then(() => setIsLoading(false));
     }
@@ -303,7 +306,8 @@ export const CurveValuesView = (): React.ReactElement => {
     const newSearchParams = createSearchParams({
       mnemonics: JSON.stringify(mnemonics),
       startIndex: formatIndexValue(getCurrentMinIndex()),
-      endIndex: formatIndexValue(getCurrentMaxIndex())
+      endIndex: formatIndexValue(getCurrentMaxIndex()),
+      userText: userQueryTextRef.current.value
     });
     setSearchParams(newSearchParams);
   };
@@ -329,7 +333,7 @@ export const CurveValuesView = (): React.ReactElement => {
         TIME_INDEX_OFFSET,
         DEPTH_INDEX_OFFSET
       );
-      getLogData(startIndex, endIndex).then(() => {
+      getLogData(startIndex, endIndex, userQueryTextRef.current.value).then(() => {
         setAutoRefresh(true);
       });
     }
@@ -394,7 +398,7 @@ export const CurveValuesView = (): React.ReactElement => {
     dispatchOperation(action);
   };
 
-  const getLogData = async (startIndex: string, endIndex: string) => {
+  const getLogData = async (startIndex: string, endIndex: string, userText: string) => {
     const startIndexIsInclusive = !autoRefresh;
     controller.current = new AbortController();
 
@@ -407,7 +411,8 @@ export const CurveValuesView = (): React.ReactElement => {
       startIndex,
       endIndex,
       false,
-      controller.current.signal
+      controller.current.signal,
+      userText
     );
     if (logData && logData.data) {
       updateColumns(logData.curveSpecifications);
@@ -424,6 +429,7 @@ export const CurveValuesView = (): React.ReactElement => {
       } else {
         setTableData(logDataRows);
       }
+      setAiServiceResult(logData.aiServiceResult);
     }
   };
 
@@ -501,6 +507,14 @@ export const CurveValuesView = (): React.ReactElement => {
             </>
           )}
         </CommonPanelContainer>
+        <AiBoxView 
+          aiServiceResult={aiServiceResult}
+          isLoading={isLoading}
+          isFetching={isFetching}
+          userQueryTextRef={userQueryTextRef}
+          refreshData={refreshData}
+          theme={theme}
+        />
         {!isLoading && !tableData.length && (
           <Message>
             <Typography>No data</Typography>
@@ -628,3 +642,8 @@ const getColumnType = (
       return ContentType.Number;
   }
 };
+
+export const AiContentContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
